@@ -29,6 +29,7 @@ require (
 	github.com/gogap/errors v0.0.0-20210818113853-edfbba0ddea9
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
+	github.com/gorilla/mux v1.8.0
 	github.com/jinzhu/gorm v1.9.16
 	github.com/magicdvd/nacos-client v0.0.0-20210609122731-160b0bb76754
 	github.com/montanaflynn/stats v0.6.6

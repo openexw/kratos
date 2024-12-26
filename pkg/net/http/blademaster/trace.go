@@ -60,6 +60,8 @@ func Trace1() HandlerFunc {
 
 		pathTemplate := c.Request.URL.Path
 		if route := mux.CurrentRoute(c.Request); route != nil {
+
+			c.engine.engine.Router()
 			// /path/123 -> /path/{id}
 			pathTemplate, _ = route.GetPathTemplate()
 		}
