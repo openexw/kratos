@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"kratos/pkg/net/tracing"
 	"net/http"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -52,9 +51,7 @@ func setupHandler(engine *Engine) {
 }
 
 func startServer(addr string) {
-	os.Setenv("DEPLOY_ENV", "test")
-	os.Setenv("APP_NAME", "test")
-	tracing.Init(context.Background(), "172.20.180.115:4318", tracing.NewTextMapPropagator())
+	tracing.Init(context.Background(), "172.20.180.115:4318", "test", tracing.WithEnvironment("test"))
 	e := DefaultServer1(nil)
 	setupHandler(e)
 	go e.Run(addr)

@@ -24,7 +24,7 @@ func TestMM(t *testing.T) {
 		DisableCSRF: false,
 	})
 
-	tracing.Init(context.Background(), "172.20.180.115:4318", tracing.NewTextMapPropagator())
+	tracing.Init(context.Background(), "172.20.180.115:4318", "trest", tracing.WithEnvironment("test"))
 
 	e := bm.DefaultServer1(nil)
 

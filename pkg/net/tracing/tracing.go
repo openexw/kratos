@@ -11,7 +11,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
-	"os"
 	"time"
 )
 
@@ -60,14 +59,54 @@ func NewTextMapPropagator() propagation.TextMapPropagator {
 
 type ShutdownFn func(context.Context) error
 
+type OtelOption func(*otelOptions)
+
+type otelOptions struct {
+	endpoint          string
+	textMapPropagator propagation.TextMapPropagator
+	appName           string
+	environment       string
+	insecure          bool // 是否是https协议
+}
+
+func WithTextMapPropagator(textMapPropagator propagation.TextMapPropagator) OtelOption {
+	return func(o *otelOptions) {
+		o.textMapPropagator = textMapPropagator
+	}
+}
+
+func WithEnvironment(env string) OtelOption {
+	return func(o *otelOptions) {
+		o.environment = env
+	}
+}
+
+func WithInsecure(insecure bool) OtelOption {
+	return func(o *otelOptions) {
+		o.insecure = insecure
+	}
+}
+
 // Init
 // endpoint := "172.20.180.115:4318"
-func Init(ctx context.Context, endpoint string, textMapPropagator propagation.TextMapPropagator) (*sdktrace.TracerProvider, []ShutdownFn, error) {
-	//meta := bc.Metadata
-	//traceConf := bc.Otel.Trace
+func Init(ctx context.Context, endpoint, appname string, opt ...OtelOption) (*sdktrace.TracerProvider, []ShutdownFn, error) {
+	op := otelOptions{
+		endpoint:          endpoint,
+		textMapPropagator: NewTextMapPropagator(),
+		appName:           appname,
+		environment:       "prod",
+		insecure:          false,
+	}
+	for _, o := range opt {
+		o(&op)
+	}
 	fns := make([]ShutdownFn, 0)
+
 	opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(endpoint)}
-	opts = append(opts, otlptracehttp.WithInsecure())
+	if op.insecure {
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+
 	client := otlptracehttp.NewClient(opts...)
 	traceExporter, err := otlptrace.New(ctx, client)
 	if err != nil {
@@ -78,19 +117,18 @@ func Init(ctx context.Context, endpoint string, textMapPropagator propagation.Te
 	//	stdouttrace.WithPrettyPrint())
 
 	tp := sdktrace.NewTracerProvider(
-		//sdktrace.WithBatcher(exp, trace.WithBatchTimeout(time.Second)),
 		sdktrace.WithBatcher(traceExporter, sdktrace.WithBatchTimeout(time.Second)),
 		sdktrace.WithResource(
 			resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String(os.Getenv("APP_NAME")),
-				attribute.String("environment", os.Getenv("DEPLOY_ENV")),
+				semconv.ServiceNameKey.String(op.appName),
+				attribute.String("environment", op.environment),
 			),
 		),
 	)
 	fns = append(fns, tp.Shutdown)
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(textMapPropagator)
+	otel.SetTextMapPropagator(op.textMapPropagator)
 	return tp, fns, nil
 }
 
