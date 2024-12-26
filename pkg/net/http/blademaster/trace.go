@@ -49,7 +49,7 @@ func Trace() HandlerFunc {
 	}
 }
 
-// Trace is trace middleware
+// Trace1 is trace middleware
 func Trace1() HandlerFunc {
 	tracer := tracing.NewTracer(tracesdk.SpanKindServer)
 	return func(c *Context) {

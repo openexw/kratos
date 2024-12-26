@@ -2,8 +2,17 @@ package tracing
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
+	"os"
+	"time"
 )
 
 const (
@@ -41,6 +50,94 @@ func WithTracerName(tracerName string) Option {
 	}
 }
 
+func NewTextMapPropagator() propagation.TextMapPropagator {
+	return propagation.NewCompositeTextMapPropagator(
+		Metadata{},
+		propagation.Baggage{},
+		propagation.TraceContext{},
+	)
+}
+
+type ShutdownFn func(context.Context) error
+
+// Init
+// endpoint := "172.20.180.115:4318"
+func Init(ctx context.Context, endpoint string, textMapPropagator propagation.TextMapPropagator) (*sdktrace.TracerProvider, []ShutdownFn, error) {
+	//meta := bc.Metadata
+	//traceConf := bc.Otel.Trace
+	fns := make([]ShutdownFn, 0)
+	opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(endpoint)}
+	opts = append(opts, otlptracehttp.WithInsecure())
+	client := otlptracehttp.NewClient(opts...)
+	traceExporter, err := otlptrace.New(ctx, client)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	//traceExporter, _ := stdouttrace.New(
+	//	stdouttrace.WithPrettyPrint())
+
+	tp := sdktrace.NewTracerProvider(
+		//sdktrace.WithBatcher(exp, trace.WithBatchTimeout(time.Second)),
+		sdktrace.WithBatcher(traceExporter, sdktrace.WithBatchTimeout(time.Second)),
+		sdktrace.WithResource(
+			resource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceNameKey.String(os.Getenv("APP_NAME")),
+				attribute.String("environment", os.Getenv("DEPLOY_ENV")),
+			),
+		),
+	)
+	fns = append(fns, tp.Shutdown)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(textMapPropagator)
+	return tp, fns, nil
+}
+
+//
+//func Init() (shutdown func(context.Context) error, err error) {
+//	var shutdownFuncs []func(context.Context) error
+//
+//	// shutdown函数调用通过shutdownFuncs注册的清理函数，并将错误连接在一起。
+//	// 每个注册的清理函数将被调用一次。
+//	shutdown = func(ctx context.Context) error {
+//		var err error
+//		for _, fn := range shutdownFuncs {
+//			err = errors.WithMessage(fn(ctx), "\n")
+//		}
+//		shutdownFuncs = nil
+//		return err
+//	}
+//
+//	// resource
+//	//res, err := resource.Merge(resource.Default(),
+//	//	resource.NewWithAttributes("sdsdd",
+//	//		semconv.ServiceNameKey.String("otel-demo"),
+//	//		semconv.ServiceVersionKey.String("v1.0.0"),
+//	//	))
+//	//if err != nil {
+//	//	log.Error("sds err: %v", err)
+//	//	return
+//	//}
+//
+//	// propagation
+//	propagator := propagation.NewCompositeTextMapPropagator(
+//		propagation.TraceContext{},
+//		propagation.Baggage{},
+//	)
+//	otel.SetTextMapPropagator(propagator)
+//
+//	// trace
+//	traceProvider := trace.NewTracerProvider(
+//		trace.WithBatcher(traceExporter,
+//			// 默认是5秒，这里设置为1秒以演示目的。
+//			trace.WithBatchTimeout(time.Second)),
+//		//trace.WithResource(res),
+//	)
+//	shutdownFuncs = append(shutdownFuncs, traceProvider.Shutdown)
+//	otel.SetTracerProvider(traceProvider)
+//	return
+//}
 //
 //// Server returns a new server middleware for OpenTelemetry.
 //func Server(opts ...Option) middleware.Middleware {
