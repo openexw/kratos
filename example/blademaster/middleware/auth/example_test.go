@@ -1,7 +1,10 @@
 package auth_test
 
 import (
+	"context"
 	"fmt"
+	"kratos/pkg/net/tracing"
+	"testing"
 
 	"kratos/example/blademaster/middleware/auth"
 	bm "kratos/pkg/net/http/blademaster"
@@ -11,7 +14,7 @@ import (
 // This example create a identify middleware instance and attach to several path,
 // it will validate request by specified policy and put extra information into context. e.g., `mid`.
 // It provides additional handler functions to provide the identification for your business handler.
-func Example() {
+func TestMM(t *testing.T) {
 	myHandler := func(ctx *bm.Context) {
 		mid := metadata.Int64(ctx, metadata.Mid)
 		ctx.JSON(fmt.Sprintf("%d", mid), nil)
@@ -21,7 +24,9 @@ func Example() {
 		DisableCSRF: false,
 	})
 
-	e := bm.DefaultServer(nil)
+	tracing.Init(context.Background(), "172.20.180.115:4318", tracing.NewTextMapPropagator())
+
+	e := bm.DefaultServer1(nil)
 
 	// mark `/user` path as User policy
 	e.GET("/user", authn.User, myHandler)
@@ -35,6 +40,5 @@ func Example() {
 	o := e.Group("/owner", authn.User)
 	o.GET("/info", myHandler)
 	o.POST("/modify", myHandler)
-
-	e.Start()
+	go e.Run(":8080")
 }

@@ -6,14 +6,13 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	tracesdk "go.opentelemetry.io/otel/trace"
 	"io"
+	"kratos/pkg/net/metadata"
+	"kratos/pkg/net/trace"
 	"kratos/pkg/net/tracing"
 	"kratos/pkg/net/transport"
 	"net/http"
 	"net/http/httptrace"
 	"strconv"
-
-	"kratos/pkg/net/metadata"
-	"kratos/pkg/net/trace"
 )
 
 const _defaultComponentName = "net/http"
@@ -51,16 +50,14 @@ func Trace() HandlerFunc {
 
 // Trace1 is trace middleware
 func Trace1() HandlerFunc {
-	tracer := tracing.NewTracer(tracesdk.SpanKindServer)
 	return func(c *Context) {
 		if c.Request.URL.String() == "/monitor/ping" {
 			c.Next()
 			return
 		}
-
+		tracer := tracing.NewTracer(tracesdk.SpanKindServer)
 		pathTemplate := c.Request.URL.Path
 		if route := mux.CurrentRoute(c.Request); route != nil {
-
 			c.engine.engine.Router()
 			// /path/123 -> /path/{id}
 			pathTemplate, _ = route.GetPathTemplate()
@@ -83,7 +80,8 @@ func Trace1() HandlerFunc {
 
 		attrs := make([]attribute.KeyValue, 0)
 		var span tracesdk.Span
-		ctx, span := tracer.Start(c, pathTemplate, transport.HeaderCarrier(c.Request.Header))
+		ctx, span := tracer.Start(c.Context, pathTemplate, transport.HeaderCarrier(c.Request.Header))
+		defer span.End()
 		span.SetAttributes(attribute.Key("component").String("net/http")) // net/http
 		span.SetAttributes(attribute.Key("span.kind").String("server"))   // 与 tracer 初始化重复
 		// t.SetTag(trace.String("caller", metadata.String(c.Context, metadata.Caller)))

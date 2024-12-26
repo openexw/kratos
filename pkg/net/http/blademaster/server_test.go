@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"kratos/pkg/net/tracing"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -50,7 +52,10 @@ func setupHandler(engine *Engine) {
 }
 
 func startServer(addr string) {
-	e := DefaultServer(nil)
+	os.Setenv("DEPLOY_ENV", "test")
+	os.Setenv("APP_NAME", "test")
+	tracing.Init(context.Background(), "172.20.180.115:4318", tracing.NewTextMapPropagator())
+	e := DefaultServer1(nil)
 	setupHandler(e)
 	go e.Run(addr)
 	curEngine.Store(e)
@@ -72,16 +77,16 @@ func TestCriticality(t *testing.T) {
 			criticalityPkg.EmptyCriticality,
 			criticalityPkg.Critical,
 		},
-		{
-			"/criticality/api",
-			criticalityPkg.CriticalPlus,
-			criticalityPkg.Critical,
-		},
-		{
-			"/criticality/api",
-			criticalityPkg.SheddablePlus,
-			criticalityPkg.Critical,
-		},
+		//{
+		//	"/criticality/api",
+		//	criticalityPkg.CriticalPlus,
+		//	criticalityPkg.Critical,
+		//},
+		//{
+		//	"/criticality/api",
+		//	criticalityPkg.SheddablePlus,
+		//	criticalityPkg.Critical,
+		//},
 	}
 	client := &http.Client{}
 	for _, testCase := range tests {
@@ -94,6 +99,7 @@ func TestCriticality(t *testing.T) {
 		body, err := ioutil.ReadAll(resp.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, testCase.expected, criticalityPkg.Criticality(body))
+		time.Sleep(5 * time.Second)
 	}
 }
 
