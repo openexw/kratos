@@ -214,7 +214,7 @@ func (engine *Engine) SetMethodConfig(path string, mc *MethodConfig) {
 // DefaultServer returns an Engine instance with the Recovery and Logger middleware already attached.
 func DefaultServer(conf *ServerConfig) *Engine {
 	engine := NewServer(conf)
-	engine.Use(Recovery(), Trace(), Logger())
+	engine.Use(Recovery(), Trace1(), Logger())
 	return engine
 }
 
@@ -493,7 +493,7 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	engine.pool.Put(c)
 }
 
-//newContext for sync.pool
+// newContext for sync.pool
 func (engine *Engine) newContext() *Context {
 	return &Context{engine: engine}
 }

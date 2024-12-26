@@ -1,12 +1,11 @@
 package jaeger
 
 import (
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 )
 
 // Span implements opentracing.Span

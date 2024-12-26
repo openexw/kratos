@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"kratos/pkg/net/trace"
 )
@@ -30,7 +31,8 @@ func TestJaegerReporter(t *testing.T) {
 		BatchSize: 1,
 	}
 
-	//c.Endpoint = "http://127.0.0.1:14268/api/traces"
+	//172.20.180.115 14268
+	c.Endpoint = "http://172.20.180.115:14268/api/traces?format=jaeger.thrift"
 
 	report := newReport(c)
 	t1 := trace.NewTracer("jaeger_test_1", report, true)
@@ -50,4 +52,5 @@ func TestJaegerReporter(t *testing.T) {
 	sp2.Finish(nil)
 	sp1.Finish(nil)
 	report.Close()
+	time.Sleep(5 * time.Second)
 }

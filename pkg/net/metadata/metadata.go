@@ -11,6 +11,25 @@ import (
 // MD is a mapping from metadata keys to values.
 type MD map[string]interface{}
 
+func (md MD) Get(key string) string {
+	if v, ok := md[key]; ok {
+		return fmt.Sprint(v)
+	}
+	return ""
+}
+
+func (md MD) Set(key string, value string) {
+	md[key] = value
+}
+
+func (md MD) Keys() []string {
+	keys := make([]string, 0, len(md))
+	for k := range md {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 type mdKey struct{}
 
 // Len returns the number of items in md.
@@ -153,4 +172,30 @@ func Range(ctx context.Context, rangeFunc func(key string, value interface{}), f
 			rangeFunc(key, value)
 		}
 	}
+}
+
+type serverMetadataKey struct{}
+
+// NewServerContext creates a new context with client md attached.
+func NewServerContext(ctx context.Context, md MD) context.Context {
+	return context.WithValue(ctx, serverMetadataKey{}, md)
+}
+
+// FromServerContext returns the server metadata in ctx if it exists.
+func FromServerContext(ctx context.Context) (MD, bool) {
+	md, ok := ctx.Value(serverMetadataKey{}).(MD)
+	return md, ok
+}
+
+type clientMetadataKey struct{}
+
+// NewClientContext creates a new context with client md attached.
+func NewClientContext(ctx context.Context, md MD) context.Context {
+	return context.WithValue(ctx, clientMetadataKey{}, md)
+}
+
+// FromClientContext returns the client metadata in ctx if it exists.
+func FromClientContext(ctx context.Context) (MD, bool) {
+	md, ok := ctx.Value(clientMetadataKey{}).(MD)
+	return md, ok
 }

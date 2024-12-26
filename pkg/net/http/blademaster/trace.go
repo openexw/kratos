@@ -1,7 +1,13 @@
 package blademaster
 
 import (
+	"github.com/gorilla/mux"
+	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	tracesdk "go.opentelemetry.io/otel/trace"
 	"io"
+	"kratos/pkg/net/tracing"
+	"kratos/pkg/net/transport"
 	"net/http"
 	"net/http/httptrace"
 	"strconv"
@@ -40,6 +46,69 @@ func Trace() HandlerFunc {
 		c.Context = trace.NewContext(c.Context, t)
 		c.Next()
 		t.Finish(&c.Error)
+	}
+}
+
+// Trace is trace middleware
+func Trace1() HandlerFunc {
+	tracer := tracing.NewTracer(tracesdk.SpanKindServer)
+	return func(c *Context) {
+		if c.Request.URL.String() == "/monitor/ping" {
+			c.Next()
+			return
+		}
+
+		pathTemplate := c.Request.URL.Path
+		if route := mux.CurrentRoute(c.Request); route != nil {
+			// /path/123 -> /path/{id}
+			pathTemplate, _ = route.GetPathTemplate()
+		}
+
+		//tr := &blademaster.Transport{
+		//	operation:    pathTemplate,
+		//	pathTemplate: pathTemplate,
+		//	reqHeader:    headerCarrier(c.Request.Header),
+		//	replyHeader:  headerCarrier(c.Writer.Header()),
+		//	request:      c.Request,
+		//	response:     c.Writer,
+		//}
+		//
+		//if c.Request.Host != "" {
+		//	tr.endpoint = c.Request.Host
+		//}
+		//tr.request = c.Request.WithContext(transport.NewServerContext(c, tr))
+		//c.Request = tr.request
+
+		attrs := make([]attribute.KeyValue, 0)
+		var span tracesdk.Span
+		ctx, span := tracer.Start(c, pathTemplate, transport.HeaderCarrier(c.Request.Header))
+		span.SetAttributes(attribute.Key("component").String("net/http")) // net/http
+		span.SetAttributes(attribute.Key("span.kind").String("server"))   // 与 tracer 初始化重复
+		// t.SetTag(trace.String("caller", metadata.String(c.Context, metadata.Caller)))
+		attrs = []attribute.KeyValue{
+			attribute.Key("component").String("net/http"),
+			semconv.HTTPURLKey.String(c.Request.URL.String()),
+			attribute.String("caller", metadata.String(c.Context, metadata.Caller)),
+			// 新增
+			semconv.HTTPMethodKey.String(c.Request.Method),
+			semconv.HTTPRouteKey.String(pathTemplate),
+			semconv.HTTPTargetKey.String(c.Request.URL.Path),
+			semconv.RPCSystemKey.String("server"), // rpc.system: 与 tracer 初始化重复
+		}
+
+		_, mAttrs := tracing.ParseFullMethod(pathTemplate) // rpc.service\rpc.method
+		attrs = append(attrs, mAttrs...)
+		remote := c.RemoteIP()
+		if remote != "" {
+			attrs = append(attrs, tracing.PeerAttr(remote)...) // net.peer.ip、et.peer.port
+		}
+		// export trace id to user.
+		c.Writer.Header().Set("kratos-trace-id", tracing.TraceID(ctx))
+		c.Context = ctx
+		defer func() {
+			defer tracer.End(c, span, c.Writer, c.Error)
+		}()
+		c.Next()
 	}
 }
 
