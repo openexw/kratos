@@ -51,7 +51,7 @@ func setupHandler(engine *Engine) {
 }
 
 func startServer(addr string) {
-	tracing.Init(context.Background(), "172.20.180.115:4318", "test", tracing.WithEnvironment("test"))
+	tracing.Init(context.Background(), "172.20.180.115:4318", "test111", tracing.WithEnvironment("test"))
 	e := DefaultServer1(nil)
 	setupHandler(e)
 	go e.Run(addr)
@@ -74,16 +74,16 @@ func TestCriticality(t *testing.T) {
 			criticalityPkg.EmptyCriticality,
 			criticalityPkg.Critical,
 		},
-		//{
-		//	"/criticality/api",
-		//	criticalityPkg.CriticalPlus,
-		//	criticalityPkg.Critical,
-		//},
-		//{
-		//	"/criticality/api",
-		//	criticalityPkg.SheddablePlus,
-		//	criticalityPkg.Critical,
-		//},
+		{
+			"/criticality/api",
+			criticalityPkg.CriticalPlus,
+			criticalityPkg.Critical,
+		},
+		{
+			"/criticality/api",
+			criticalityPkg.SheddablePlus,
+			criticalityPkg.Critical,
+		},
 	}
 	client := &http.Client{}
 	for _, testCase := range tests {

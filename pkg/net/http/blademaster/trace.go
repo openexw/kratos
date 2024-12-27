@@ -82,13 +82,12 @@ func Trace1() HandlerFunc {
 		var span tracesdk.Span
 		ctx, span := tracer.Start(c.Context, pathTemplate, transport.HeaderCarrier(c.Request.Header))
 		defer span.End()
-		span.SetAttributes(attribute.Key("component").String("net/http")) // net/http
-		span.SetAttributes(attribute.Key("span.kind").String("server"))   // 与 tracer 初始化重复
-		// t.SetTag(trace.String("caller", metadata.String(c.Context, metadata.Caller)))
 		attrs = []attribute.KeyValue{
 			attribute.Key("component").String("net/http"),
 			semconv.HTTPURLKey.String(c.Request.URL.String()),
-			attribute.String("caller", metadata.String(c.Context, metadata.Caller)),
+			attribute.Key("caller").String(metadata.String(c.Context, metadata.Caller)),
+			attribute.Key("traceId").String(tracing.TraceID(ctx)),
+			attribute.Key("spanId").String(tracing.SpanID(ctx)),
 			// 新增
 			semconv.HTTPMethodKey.String(c.Request.Method),
 			semconv.HTTPRouteKey.String(pathTemplate),
@@ -102,6 +101,7 @@ func Trace1() HandlerFunc {
 		if remote != "" {
 			attrs = append(attrs, tracing.PeerAttr(remote)...) // net.peer.ip、et.peer.port
 		}
+		span.SetAttributes(attrs...)
 		// export trace id to user.
 		c.Writer.Header().Set("kratos-trace-id", tracing.TraceID(ctx))
 		c.Context = ctx

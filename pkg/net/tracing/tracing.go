@@ -62,11 +62,9 @@ type ShutdownFn func(context.Context) error
 type OtelOption func(*otelOptions)
 
 type otelOptions struct {
-	endpoint          string
 	textMapPropagator propagation.TextMapPropagator
-	appName           string
 	environment       string
-	insecure          bool // 是否是https协议
+	insecure          bool // 是否是http协议
 }
 
 func WithTextMapPropagator(textMapPropagator propagation.TextMapPropagator) OtelOption {
@@ -91,11 +89,9 @@ func WithInsecure(insecure bool) OtelOption {
 // endpoint := "172.20.180.115:4318"
 func Init(ctx context.Context, endpoint, appname string, opt ...OtelOption) (*sdktrace.TracerProvider, []ShutdownFn, error) {
 	op := otelOptions{
-		endpoint:          endpoint,
 		textMapPropagator: NewTextMapPropagator(),
-		appName:           appname,
 		environment:       "prod",
-		insecure:          false,
+		insecure:          true,
 	}
 	for _, o := range opt {
 		o(&op)
@@ -121,8 +117,8 @@ func Init(ctx context.Context, endpoint, appname string, opt ...OtelOption) (*sd
 		sdktrace.WithResource(
 			resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String(op.appName),
-				attribute.String("environment", op.environment),
+				semconv.ServiceNameKey.String(appname),
+				attribute.String("env", op.environment),
 			),
 		),
 	)
