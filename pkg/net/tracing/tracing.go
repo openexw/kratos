@@ -2,10 +2,12 @@ package tracing
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -36,11 +38,11 @@ func WithPropagator(propagator propagation.TextMapPropagator) Option {
 
 // WithTracerProvider with tracer provider.
 // By default, it uses the global provider that is set by otel.SetTracerProvider(provider).
-func WithTracerProvider(provider trace.TracerProvider) Option {
-	return func(opts *options) {
-		opts.tracerProvider = provider
-	}
-}
+//func WithTracerProvider(provider trace.TracerProvider) Option {
+//	return func(opts *options) {
+//		opts.tracerProvider = provider
+//	}
+//}
 
 // WithTracerName with tracer name
 func WithTracerName(tracerName string) Option {
@@ -64,7 +66,7 @@ type OtelOption func(*otelOptions)
 type otelOptions struct {
 	textMapPropagator propagation.TextMapPropagator
 	environment       string
-	insecure          bool // 是否是http协议
+	export            sdktrace.SpanExporter
 }
 
 func WithTextMapPropagator(textMapPropagator propagation.TextMapPropagator) OtelOption {
@@ -79,41 +81,46 @@ func WithEnvironment(env string) OtelOption {
 	}
 }
 
-func WithInsecure(insecure bool) OtelOption {
+func WithExport(ex sdktrace.SpanExporter) OtelOption {
 	return func(o *otelOptions) {
-		o.insecure = insecure
+		o.export = ex
 	}
+}
+
+func NewHttpExporter(ctx context.Context, endpoint string, insecure bool) (sdktrace.SpanExporter, error) {
+	opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(endpoint)}
+	if insecure {
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+
+	client := otlptracehttp.NewClient(opts...)
+	return otlptrace.New(ctx, client)
+}
+
+func NewStdoutExporter() (sdktrace.SpanExporter, error) {
+	return stdouttrace.New(
+		stdouttrace.WithPrettyPrint())
 }
 
 // Init
 // endpoint := "172.20.180.115:4318"
-func Init(ctx context.Context, endpoint, appname string, opt ...OtelOption) (*sdktrace.TracerProvider, []ShutdownFn, error) {
+func Init(appname string, opt ...OtelOption) (*sdktrace.TracerProvider, []ShutdownFn, error) {
+	exporter, err := NewStdoutExporter()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create stdout exporter")
+	}
 	op := otelOptions{
 		textMapPropagator: NewTextMapPropagator(),
 		environment:       "prod",
-		insecure:          true,
+		export:            exporter,
 	}
 	for _, o := range opt {
 		o(&op)
 	}
 	fns := make([]ShutdownFn, 0)
 
-	opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(endpoint)}
-	if op.insecure {
-		opts = append(opts, otlptracehttp.WithInsecure())
-	}
-
-	client := otlptracehttp.NewClient(opts...)
-	traceExporter, err := otlptrace.New(ctx, client)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	//traceExporter, _ := stdouttrace.New(
-	//	stdouttrace.WithPrettyPrint())
-
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(traceExporter, sdktrace.WithBatchTimeout(time.Second)),
+		sdktrace.WithBatcher(op.export, sdktrace.WithBatchTimeout(time.Second)),
 		sdktrace.WithResource(
 			resource.NewWithAttributes(
 				semconv.SchemaURL,

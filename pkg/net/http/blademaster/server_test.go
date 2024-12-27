@@ -51,7 +51,8 @@ func setupHandler(engine *Engine) {
 }
 
 func startServer(addr string) {
-	tracing.Init(context.Background(), "172.20.180.115:4318", "test111", tracing.WithEnvironment("test"))
+	//exporter, _ := tracing.NewHttpExporter(context.Background(), "172.20.180.115:4318", false)
+	tracing.Init("test111", tracing.WithEnvironment("test"))
 	e := DefaultServer1(nil)
 	setupHandler(e)
 	go e.Run(addr)
