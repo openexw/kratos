@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"kratos/pkg/net/tracing"
 	"math"
 	"runtime"
 	"strconv"
@@ -16,6 +17,9 @@ import (
 func addExtraField(ctx context.Context, fields map[string]interface{}) {
 	if t, ok := trace.FromContext(ctx); ok {
 		fields[_tid] = t.TraceID()
+	}
+	if tid := tracing.TraceID(ctx); tid != "" {
+		fields[_tid] = tid
 	}
 	if caller := metadata.String(ctx, metadata.Caller); caller != "" {
 		fields[_caller] = caller
