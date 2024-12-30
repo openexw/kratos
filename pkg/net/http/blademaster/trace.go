@@ -82,11 +82,12 @@ func Trace1() HandlerFunc {
 		var span tracesdk.Span
 		ctx, span := tracer.Start(c.Context, pathTemplate, transport.HeaderCarrier(c.Request.Header))
 		defer span.End()
+		tid := tracing.TraceID(ctx)
 		attrs = []attribute.KeyValue{
 			attribute.Key("component").String("net/http"),
 			semconv.HTTPURLKey.String(c.Request.URL.String()),
 			attribute.Key("caller").String(metadata.String(c.Context, metadata.Caller)),
-			attribute.Key("traceId").String(tracing.TraceID(ctx)),
+			attribute.Key("traceId").String(tid),
 			attribute.Key("spanId").String(tracing.SpanID(ctx)),
 			// 新增
 			semconv.HTTPMethodKey.String(c.Request.Method),
@@ -103,7 +104,7 @@ func Trace1() HandlerFunc {
 		}
 		span.SetAttributes(attrs...)
 		// export trace id to user.
-		c.Writer.Header().Set("kratos-trace-id", tracing.TraceID(ctx))
+		c.Writer.Header().Set("kratos-trace-id", tid)
 		c.Context = ctx
 		defer func() {
 			defer tracer.End(c, span, c.Writer, c.Error)
