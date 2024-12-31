@@ -82,7 +82,7 @@ func FromError(err error) error {
 // End finish tracing span
 func (t *Tracer) End(_ context.Context, span trace.Span, m interface{}, err error) {
 	if err != nil {
-		span.RecordError(err)
+		span.RecordError(err, trace.WithStackTrace(true))
 		if e := FromError(err); e != nil {
 			//span.SetAttributes(attribute.Key("rpc.status_code").Int64(int64(e.Error())))
 		}

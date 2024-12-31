@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -119,15 +118,21 @@ func Init(appname string, opt ...OtelOption) (*sdktrace.TracerProvider, []Shutdo
 	}
 	fns := make([]ShutdownFn, 0)
 
+	res, err := resource.New(context.Background(),
+		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String(appname),
+			semconv.DeploymentEnvironmentKey.String(op.environment),
+		))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create resource")
+	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(op.export, sdktrace.WithBatchTimeout(time.Second)),
-		sdktrace.WithResource(
-			resource.NewWithAttributes(
-				semconv.SchemaURL,
-				semconv.ServiceNameKey.String(appname),
-				attribute.String("env", op.environment),
-			),
-		),
+		sdktrace.WithResource(res),
+		//sdktrace.WithIDGenerator()
 	)
 	fns = append(fns, tp.Shutdown)
 	otel.SetTracerProvider(tp)
