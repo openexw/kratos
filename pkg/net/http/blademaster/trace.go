@@ -103,6 +103,7 @@ func Trace1() HandlerFunc {
 			attrs = append(attrs, tracing.PeerAttr(remote)...) // net.peer.ip、et.peer.port
 		}
 		span.SetAttributes(attrs...)
+		//span.AddEvent("log", tracesdk.WithAttributes(attrs...))
 		// export trace id to user.
 		c.Writer.Header().Set("kratos-trace-id", tid)
 		c.Context = ctx

@@ -12,6 +12,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
+	"kratos/pkg/log"
 	"time"
 )
 
@@ -128,6 +129,11 @@ func Init(appname string, opt ...OtelOption) (*sdktrace.TracerProvider, []Shutdo
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to create resource")
 	}
+
+	// 设置 err
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		log.Error("otel err: %v", err)
+	}))
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(op.export, sdktrace.WithBatchTimeout(time.Second)),
